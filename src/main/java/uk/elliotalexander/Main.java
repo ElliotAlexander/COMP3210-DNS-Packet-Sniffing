@@ -2,6 +2,9 @@ package uk.elliotalexander;
 import org.pcap4j.core.*;
 import org.pcap4j.packet.*;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.PrintWriter;
 import java.net.*;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -30,19 +33,35 @@ public class Main {
 
             PcapDumper dumper = handle.dumpOpen("out.pcap");
 
+            PrintWriter writer = new PrintWriter("output.txt", "UTF-8");
 
+            int index = 0;
             while(handle.isOpen()){
                 Packet packet = handle.getNextPacketEx();
-                System.out.println(packet.getClass());
                 Packet payload2 = packet.getPayload();
-                System.out.println(payload2.getClass());
                 Packet payload3 = payload2.getPayload();
-                System.out.println(payload3.getClass());
-                System.out.println(payload3);
+
+                if(payload3 != null){
+
+                    StringBuilder sb = new StringBuilder();
+                    for(byte b : new byte[]{payload3.getRawData()[0], payload3.getRawData()[1]}){
+                        sb.append(String.format("%02X", b));
+                    }
+
+                    if(sb.toString().equalsIgnoreCase("8801") || sb.toString().equalsIgnoreCase("8802")){
+                        writer.println(index + " - " + sb.toString());
+                        System.out.println(index + " -  " + payload3.getRawData()[0] + payload3.getRawData()[1]);
+                        index++;
+                    }
+                }
+
                 dumper.dump(packet);
+
+                writer.flush();
 
             }
 
+            writer.close();
             handle.close();
 
 
@@ -74,5 +93,9 @@ public class Main {
             System.out.printf("InetAddress: %s\n", inetAddress);
         }
         System.out.printf("\n");
+    }
+
+    private void PRF(t){
+
     }
 }

