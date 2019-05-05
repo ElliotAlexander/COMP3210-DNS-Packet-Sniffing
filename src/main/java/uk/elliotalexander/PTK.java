@@ -3,7 +3,7 @@ package uk.elliotalexander;
 import com.google.common.io.BaseEncoding;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.modes.CCMBlockCipher;
-import org.bouncycastle.crypto.params.CCMParameters;
+import org.bouncycastle.crypto.params.AEADParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -71,17 +71,30 @@ public class PTK {
 
         final String ccmpKey = ccmpKeyBuilder.reverse().toString();*/
 
-        final byte[] ccmKeyBytes = BaseEncoding.base16().decode("5ced6b863fccfc3e0e51837cd5fec81d".toUpperCase());
+        //final byte[] ccmKeyBytes = BaseEncoding.base16().decode("5ced6b863fccfc3e0e51837cd5fec81d".toUpperCase());
+
+
+        /*
+         * EXAMPLE FROM H.6.4 ON SPEC
+         */
+
+        final byte[] ccmKeyBytes = BaseEncoding.base16().decode("c97c1f67ce371185514a8a19f2bdd52f".toUpperCase());
 
         Security.addProvider(new BouncyCastleProvider());
-        CCMParameters params = new CCMParameters(new KeyParameter(ccmKeyBytes), 128, BaseEncoding.base16().decode("8A02002000000000"), new byte[]{});
+        AEADParameters params = new AEADParameters(new KeyParameter(ccmKeyBytes), 64, BaseEncoding.base16().decode("005030f1844408b5039776e70c".toUpperCase()), new byte[]{});
         CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
         c.init(false, params);
 
-        final String encrypted = "39f7b6a6ec785448b1d28f563e62b7d53b571038ba9d83d11a2a3aa4ea226094b6b4a41b2bf400b3f0534ebfc76b93f96857e5a3e255f112870986453aca5cba0332a8a21e0317177c3d21117e72a8982409f92853c436e15eb48d";
+        final String encrypted = "f3d0a2fe9a3dbf2342a643e43246e80c3c04d0197845ce0b16f97623";
         byte[] encryptedBytes = BaseEncoding.base16().decode(encrypted.toUpperCase());
 
-        byte[] decrypted = c.processPacket(encryptedBytes, 0, encryptedBytes.length);
-        System.out.println(BaseEncoding.base16().encode(decrypted));
+        byte[] outputBytes = new byte[c.getOutputSize(encryptedBytes.length)];
+        int result = c.processBytes(encryptedBytes, 0, encryptedBytes.length, outputBytes, 0);
+        try {
+            c.doFinal(outputBytes, result);
+        } catch (Exception e) {
+
+        }
+        System.out.println(BaseEncoding.base16().encode(outputBytes));
     }
 }
