@@ -1,5 +1,8 @@
 package uk.elliotalexander;
 
+import com.google.common.io.BaseEncoding;
+
+import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
@@ -8,16 +11,6 @@ import java.security.NoSuchAlgorithmException;
 public class PTK {
     private static final String HMAC_SHA1 = "HmacSHA1";
 
-    private static String byteToHex(byte[] data) {
-        final StringBuilder builder = new StringBuilder();
-
-        for (byte b : data) {
-            builder.append(String.format("%02x", b));
-        }
-
-        return builder.toString();
-    }
-
     private static String HSHA1(String key, String purpose, String data, String length) throws NoSuchAlgorithmException, InvalidKeyException {
         SecretKeySpec signingKey = new SecretKeySpec(key.getBytes(), HMAC_SHA1);
         Mac mac = Mac.getInstance(HMAC_SHA1);
@@ -25,7 +18,7 @@ public class PTK {
 
         String payload = purpose + "0" + data + length;
 
-        return byteToHex(mac.doFinal(payload.getBytes()));
+        return BaseEncoding.base16().encode(mac.doFinal(payload.getBytes()));
     }
 
     private static String PRF(String key, String purpose, String data, int length) throws InvalidKeyException, NoSuchAlgorithmException {
@@ -34,7 +27,7 @@ public class PTK {
             result.append(HSHA1(key, purpose, data, Integer.toString(i)));
         }
 
-        return result.toString();
+        return result.toString().substring(0, length/4);
     }
 
     public static String buildPTK(String PMK, String AA, String SPA, String ANonce, String SNonce) throws NoSuchAlgorithmException, InvalidKeyException {

@@ -95,7 +95,4 @@ public class Main {
         System.out.printf("\n");
     }
 
-    private void PRF(t){
-
-    }
 }
