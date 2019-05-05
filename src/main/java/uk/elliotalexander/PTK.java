@@ -3,7 +3,7 @@ package uk.elliotalexander;
 import com.google.common.io.BaseEncoding;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.modes.CCMBlockCipher;
-import org.bouncycastle.crypto.params.AEADParameters;
+import org.bouncycastle.crypto.params.CCMParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -54,7 +54,7 @@ public class PTK {
     }
 
     public static void main(String[] args) throws Exception {
-        final String AA = "44:85:00:dc:39:ee";
+/*        final String AA = "44:85:00:dc:39:ee";
         final String SPA = "e4:95:6e:44:00:e6";
         final String ANonce = "cbc4f0a9f9879a00ef6317c7d67300c20db915717c8180991d2a99a054679dee";
         final String SNonce = "bd2735ca00654390ef452863d853d2d2760c36c85997af77c05ca33a272ec55c";
@@ -69,26 +69,19 @@ public class PTK {
         StringBuilder ccmpKeyBuilder = new StringBuilder();
         ccmpKeyBuilder.append(ptk.substring(32, 64));
 
-        final String ccmpKey = ccmpKeyBuilder.reverse().toString();
-        final byte[] ccmKeyBytes = BaseEncoding.base16().decode(ccmpKey);
+        final String ccmpKey = ccmpKeyBuilder.reverse().toString();*/
+
+        final byte[] ccmKeyBytes = BaseEncoding.base16().decode("5ced6b863fccfc3e0e51837cd5fec81d".toUpperCase());
 
         Security.addProvider(new BouncyCastleProvider());
-        //Cipher cipher = Cipher.getInstance("AES/CCM/NoPadding");
-        //SecretKeySpec key = new SecretKeySpec(BaseEncoding.base16().decode(ccmpKey), "AES/CCM/NoPadding");
-        //IvParameterSpec iv = new IvParameterSpec(BaseEncoding.base16().decode("6E01006000000000"));
-
-        AEADParameters params = new AEADParameters(new KeyParameter(ccmKeyBytes), 128, BaseEncoding.base16().decode("6E01006000000000"), new byte[]{});
-        //cipher.init(Cipher.DECRYPT_MODE, key, params);
+        CCMParameters params = new CCMParameters(new KeyParameter(ccmKeyBytes), 128, BaseEncoding.base16().decode("8A02002000000000"), new byte[]{});
         CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
         c.init(false, params);
 
-        final String encrypted = "f77573681aae2f5854af45a5158792d79d945d7cda29c7bc21c19e21e4534e1515900183f8f2773a64366752";
-        System.out.println(encrypted.length());
-
+        final String encrypted = "39f7b6a6ec785448b1d28f563e62b7d53b571038ba9d83d11a2a3aa4ea226094b6b4a41b2bf400b3f0534ebfc76b93f96857e5a3e255f112870986453aca5cba0332a8a21e0317177c3d21117e72a8982409f92853c436e15eb48d";
         byte[] encryptedBytes = BaseEncoding.base16().decode(encrypted.toUpperCase());
-        System.out.println(encryptedBytes.length);
 
-        //byte[] decrypted = c.doFinal(encryptedBytes);
-        //System.out.println(BaseEncoding.base16().encode(decrypted));
+        byte[] decrypted = c.processPacket(encryptedBytes, 0, encryptedBytes.length);
+        System.out.println(BaseEncoding.base16().encode(decrypted));
     }
 }
