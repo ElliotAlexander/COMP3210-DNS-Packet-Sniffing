@@ -8,6 +8,7 @@ import org.bouncycastle.crypto.params.AEADParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.Arrays;
+import org.pcap4j.packet.*;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -97,5 +98,12 @@ public class PTK {
         System.out.println("DURATION: " + duration);
 
         System.out.println("DECRYPTED PACKET: " + BaseEncoding.base16().encode(outputBytes));
+
+        Packet test = LlcPacket.newPacket(outputBytes, 0, outputBytes.length);
+        DnsPacket dns = test.getPayload().getPayload().get(DnsPacket.class);
+        
+        for (DnsQuestion q : dns.getHeader().getQuestions()) {
+            System.out.println(q.getQName());
+        }
     }
 }
