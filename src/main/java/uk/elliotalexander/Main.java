@@ -1,98 +1,75 @@
 package uk.elliotalexander;
 import org.pcap4j.core.*;
-import org.pcap4j.packet.*;
+import uk.elliotalexander.exceptions.InterfaceNotFoundException;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.net.*;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 
 
 public class Main {
+
+    String interface_name = "wlan0";
+    String handle_dump_name = "out.pcap";
+    String program_dump_name = "output.txt";
+
+
+
+    private int thread_id = 0;
+    private HashMap<Integer, PacketListenerThread> threads = new HashMap<Integer, PacketListenerThread>();
+
 
     public static void main(String[] args) {
         new Main();
     }
 
     public Main(){
-        try {
-            printInterfaces();
+            Utils.printInterfaces();
 
-            System.out.println("Done printing interfaces");
+            PcapHandle handle = null;
+            PcapDumper dumper = null;
+            PrintWriter writer = null;
 
-
-            PcapNetworkInterface nif = Pcaps.getDevByName("wlan0");
-            int snapLen = 65536;
-            PcapNetworkInterface.PromiscuousMode mode = PcapNetworkInterface.PromiscuousMode.PROMISCUOUS;
-            int timeout = 1000;
-            System.out.println("Opening interface");
-            PcapHandle handle = nif.openLive(snapLen, mode, timeout);
-            System.out.println("Opened handle, awaiting packet.");
-
-            PcapDumper dumper = handle.dumpOpen("out.pcap");
-
-            PrintWriter writer = new PrintWriter("output.txt", "UTF-8");
-
-            int index = 0;
-            while(handle.isOpen()){
-                Packet packet = handle.getNextPacketEx();
-                Packet payload2 = packet.getPayload();
-                Packet payload3 = payload2.getPayload();
-
-                if(payload3 != null){
-
-                    StringBuilder sb = new StringBuilder();
-                    for(byte b : new byte[]{payload3.getRawData()[0], payload3.getRawData()[1]}){
-                        sb.append(String.format("%02X", b));
-                    }
-
-                    if(sb.toString().equalsIgnoreCase("8801") || sb.toString().equalsIgnoreCase("8802")){
-                        writer.println(index + " - " + sb.toString());
-                        System.out.println(index + " -  " + payload3.getRawData()[0] + payload3.getRawData()[1]);
-                        index++;
-                    }
-                }
-
-                dumper.dump(packet);
-
-                writer.flush();
-
+            try {
+                handle = openInterfaces(this.interface_name);
+                dumper = handle.dumpOpen(this.handle_dump_name);
+                writer = new PrintWriter(this.program_dump_name, "UTF-8");
+            } catch (Exception e){
+                System.out.println("Error - " + e.toString() + "\n ");
+                e.printStackTrace();
             }
 
-            writer.close();
-            handle.close();
-
-
-        } catch (Exception e){
-            System.out.println("Error - " + e.toString() + "\n ");
-            e.printStackTrace();
-        }
-
+            PacketListenerThread thread = new PacketListenerThread(handle, writer, dumper, this, thread_id);
+            threads.put(thread_id, thread);
+            thread_id++;
+            thread.start();
     }
 
-    private void printInterfaces()
-    {
+    public void throwThreadException(Exception e, int thread_id){
+        threads.get(thread_id).interrupt();
+        System.out.println("Killed thread " + thread_id);
+        e.printStackTrace();
+    }
+
+    private PcapHandle openInterfaces(String interface_name) throws InterfaceNotFoundException {
+        int snapLen = 65536;
+        int timeout = 1000;
+
         try {
-            Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
-            for (NetworkInterface netint : Collections.list(nets))
-                displayInterfaceInformation(netint);
-        } catch (Exception e){
-            e.printStackTrace();
+            PcapNetworkInterface nif = Pcaps.getDevByName(interface_name);
+            PcapNetworkInterface.PromiscuousMode mode = PcapNetworkInterface.PromiscuousMode.PROMISCUOUS;
+            System.out.println("Opening interface " + interface_name);
+            PcapHandle handle = nif.openLive(snapLen, mode, timeout);
+            System.out.println("Successfully opened interface on " + interface_name);
+            return handle;
+        } catch (PcapNativeException e){
+            throw new InterfaceNotFoundException();
         }
-
     }
 
 
-    private void displayInterfaceInformation(NetworkInterface netint) throws SocketException {
-        System.out.printf("Display name: %s\n", netint.getDisplayName());
-        System.out.printf("Name: %s\n", netint.getName());
-        Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
-        for (InetAddress inetAddress : Collections.list(inetAddresses)) {
-            System.out.printf("InetAddress: %s\n", inetAddress);
-        }
-        System.out.printf("\n");
-    }
+
 
 }

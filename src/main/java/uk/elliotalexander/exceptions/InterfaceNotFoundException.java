@@ -1,4 +1,5 @@
 package uk.elliotalexander.exceptions;
 
-public class InterfaceNotFoundException {
+public class InterfaceNotFoundException extends Exception {
+
 }

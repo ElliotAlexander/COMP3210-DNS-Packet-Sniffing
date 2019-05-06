@@ -1,4 +1,4 @@
 package uk.elliotalexander.exceptions;
 
-public class InterfaceHandleClosedException {
+public class InterfaceHandleClosedException extends Exception {
 }
