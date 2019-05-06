@@ -1,6 +1,7 @@
 package uk.elliotalexander;
 
 import com.google.common.io.BaseEncoding;
+import com.google.common.primitives.UnsignedBytes;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.modes.CCMBlockCipher;
 import org.bouncycastle.crypto.params.AEADParameters;
@@ -17,75 +18,67 @@ import java.security.Security;
 public class PTK {
     private static final String HMAC_SHA1 = "HmacSHA1";
 
-    private static String HSHA1(byte[] key, byte[] purpose, byte[] data, byte length) throws NoSuchAlgorithmException, InvalidKeyException {
+    private static byte[] HSHA1(byte[] key, byte[] purpose, byte[] data, byte length) throws NoSuchAlgorithmException, InvalidKeyException {
         byte[] input = Arrays.concatenate(purpose, new byte[]{0}, data, new byte[]{length});
 
         SecretKeySpec signingKey = new SecretKeySpec(key, HMAC_SHA1);
         Mac mac = Mac.getInstance(HMAC_SHA1);
         mac.init(signingKey);
 
-        return BaseEncoding.base16().encode(mac.doFinal(input));
+        return mac.doFinal(input);
     }
 
-    private static String PRF(byte[] key, byte[] purpose, byte[] data, int length) throws InvalidKeyException, NoSuchAlgorithmException {
-        StringBuilder result = new StringBuilder();
+    private static byte[] PRF(byte[] key, byte[] purpose, byte[] data, int length) throws InvalidKeyException, NoSuchAlgorithmException {
+        byte[] result = new byte[]{};
         for (int i = 0; i <= (length+159)/160; i++) {
-            result.append(HSHA1(key, purpose, data, (byte) i));
+            result = Arrays.concatenate(result, HSHA1(key, purpose, data, (byte) i));
         }
 
-        return result.toString().substring(0, length/4);
+        return result;
     }
 
-    public static String buildPTK(String PMK, String AA, String SPA, String ANonce, String SNonce) throws NoSuchAlgorithmException, InvalidKeyException {
-        String a;
-        if (AA.compareTo(SPA) < 0) {
-            a = AA + SPA;
+    public static byte[] buildPTK(byte[] PMK, byte[] AA, byte[] SPA, byte[] ANonce, byte[] SNonce) throws NoSuchAlgorithmException, InvalidKeyException {
+        byte[] a;
+        if (UnsignedBytes.lexicographicalComparator().compare(AA, SPA) < 0) {
+            a = Arrays.concatenate(AA, SPA);
         } else {
-            a = SPA + AA;
+            a = Arrays.concatenate(SPA, AA);
         }
 
-        String nonce;
-        if (ANonce.compareTo(SNonce) < 0) {
-            nonce = ANonce + SNonce;
+        byte[] nonce;
+        if (UnsignedBytes.lexicographicalComparator().compare(ANonce, SNonce) < 0) {
+            nonce = Arrays.concatenate(ANonce, SNonce);
         } else {
-            nonce = SNonce + ANonce;
+            nonce = Arrays.concatenate(SNonce, ANonce);
         }
 
-        byte[] params = BaseEncoding.base16().decode((a+nonce).toUpperCase());
+        byte[] data = Arrays.concatenate(a, nonce);
 
-        return PRF(PMK.getBytes(), "Pairwise key expansion".getBytes(), params, 384);
+        return PRF(PMK, "Pairwise key expansion".getBytes(), data, 384);
     }
 
     public static void main(String[] args) throws Exception {
         /*
-         * TEST FROM H.7.1 ON SPEC
+         * EAPOL HANDSHAKE AT 9545
          */
-        final String AA = "a0a1a1a3a4a5";
-        final String SPA = "b0b1b2b3b4b5";
-        final String ANonce = "e0e1e2e3e4e5e6e7e8e9f0f1f2f3f4f5f6f7f8f9";
-        final String SNonce = "c0c1c2c3c4c5c6c7c8c9d0d1d2d3d4d5d6d7d8d9";
-        final String PMK = "0dc0d6eb90555ed6419756b9a15ec3e3209b63df707dd508d14581f8982721af";
 
-        String ptk = buildPTK(PMK, AA, SPA, ANonce, SNonce);
+        final byte[] AA = BaseEncoding.base16().decode("e4956e4400e6".toUpperCase());
+        final byte[] SPA = BaseEncoding.base16().decode("448500dc39ee".toUpperCase());
+        final byte[] ANonce = BaseEncoding.base16().decode("cbc4f0a9f9879a00ef6317c7d67300c20db915717c8180991d2a99a054679dee".toUpperCase());
+        final byte[] SNonce = BaseEncoding.base16().decode("bd2735ca00654390ef452863d853d2d2760c36c85997af77c05ca33a272ec55c".toUpperCase());
+        final byte[] PMK = BaseEncoding.base16().decode("8c36c8f2e805fea9e153ff1ed457b3c1cf87f428de5432566b77e7e91a8ab5aa".toUpperCase());
 
-        // 32 Characters
-        // From 64 to 32
-        StringBuilder ccmpKeyBuilder = new StringBuilder();
-        ccmpKeyBuilder.append(ptk, 32, 64);
-
-        final String ccmpKey = ccmpKeyBuilder.reverse().toString();
-        System.out.println("CCM KEY: " + ccmpKey);
-
-
+        long start = System.currentTimeMillis();
+        final byte[] ptk = buildPTK(PMK, AA, SPA, ANonce, SNonce);
+        final byte[] tk = Arrays.copyOfRange(ptk, 32, 48);
 
         /*
          * DECRYPTED PACKET 12246 FROM WIRESHARK
          */
-        final byte[] ccmKeyBytes = BaseEncoding.base16().decode("5ced6b863fccfc3e0e51837cd5fec81d".toUpperCase());
         Security.addProvider(new BouncyCastleProvider());
         byte[] nonce = BaseEncoding.base16().decode("00448500dc39ee00000000028a".toUpperCase());
 
-        AEADParameters params = new AEADParameters(new KeyParameter(ccmKeyBytes), 64, nonce, new byte[]{});
+        AEADParameters params = new AEADParameters(new KeyParameter(tk), 64, nonce, new byte[]{});
         CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
         c.init(false, params);
 
@@ -99,6 +92,10 @@ public class PTK {
         } catch (Exception e) {
 
         }
+
+        long duration = (System.currentTimeMillis() - start);
+        System.out.println("DURATION: " + duration);
+
         System.out.println("DECRYPTED PACKET: " + BaseEncoding.base16().encode(outputBytes));
     }
 }
