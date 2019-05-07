@@ -2,19 +2,15 @@ package uk.elliotalexander;
 
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.UnsignedBytes;
-import org.bouncycastle.crypto.engines.AESEngine;
-import org.bouncycastle.crypto.modes.CCMBlockCipher;
-import org.bouncycastle.crypto.params.AEADParameters;
-import org.bouncycastle.crypto.params.KeyParameter;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.Arrays;
-import org.pcap4j.packet.*;
+import org.pcap4j.packet.DnsPacket;
+import org.pcap4j.packet.DnsQuestion;
+import org.pcap4j.packet.Packet;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.Security;
 
 public class PTK {
     private static final String HMAC_SHA1 = "HmacSHA1";
@@ -62,48 +58,34 @@ public class PTK {
         /*
          * EAPOL HANDSHAKE AT 9545
          */
-
         final byte[] AA = BaseEncoding.base16().decode("e4956e4400e6".toUpperCase());
         final byte[] SPA = BaseEncoding.base16().decode("448500dc39ee".toUpperCase());
-        final byte[] ANonce = BaseEncoding.base16().decode("cbc4f0a9f9879a00ef6317c7d67300c20db915717c8180991d2a99a054679dee".toUpperCase());
-        final byte[] SNonce = BaseEncoding.base16().decode("bd2735ca00654390ef452863d853d2d2760c36c85997af77c05ca33a272ec55c".toUpperCase());
+        final byte[] EAPOL1 = BaseEncoding.base16().decode("00002000ae4000a0200800a02008000010027109a000dc00640000000000000188023a01448500dc39eee4956e4400e6e4956e4400e600000700aaaa03000000888e0203005f02008a00100000000000000001cbc4f0a9f9879a00ef6317c7d67300c20db915717c8180991d2a99a054679dee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b4261a22".toUpperCase());
+        final byte[] EAPOL2 = BaseEncoding.base16().decode("00002000ae4000a0200800a02008000010027109a000de00640000000000000188013a01e4956e4400e6448500dc39eee4956e4400e600000700aaaa03000000888e0103007502010a00000000000000000001bd2735ca00654390ef452863d853d2d2760c36c85997af77c05ca33a272ec55c00000000000000000000000000000000000000000000000000000000000000005ef597651ffbab7c38d302f3aa9abefe001630140100000fac040100000fac040100000fac020000c03578e7".toUpperCase());
         final byte[] PMK = BaseEncoding.base16().decode("8c36c8f2e805fea9e153ff1ed457b3c1cf87f428de5432566b77e7e91a8ab5aa".toUpperCase());
 
         long start = System.currentTimeMillis();
-        final byte[] ptk = buildPTK(PMK, AA, SPA, ANonce, SNonce);
-        final byte[] tk = Arrays.copyOfRange(ptk, 32, 48);
+        Connection connection = new Connection(SPA, AA, PMK);
+        connection.addEapolMessage(EAPOL1, 1);
+        connection.addEapolMessage(EAPOL2, 2);
+        connection.generateTk();
 
         /*
          * DECRYPTED PACKET 12246 FROM WIRESHARK
          */
-        Security.addProvider(new BouncyCastleProvider());
-        byte[] nonce = BaseEncoding.base16().decode("00448500dc39ee00000000028a".toUpperCase());
-
-        AEADParameters params = new AEADParameters(new KeyParameter(tk), 64, nonce, new byte[]{});
-        CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
-        c.init(false, params);
-
         final String encrypted = "39f7b6a6ec785448b1d28f563e62b7d53b571038ba9d83d11a2a3aa4ea226094b6b4a41b2bf400b3f0534ebfc76b93f96857e5a3e255f112870986453aca5cba0332a8a21e0317177c3d21117e72a8982409f92853c436e15eb48d";
         byte[] encryptedBytes = BaseEncoding.base16().decode(encrypted.toUpperCase());
 
-        byte[] outputBytes = new byte[c.getOutputSize(encryptedBytes.length)];
-        int result = c.processBytes(encryptedBytes, 0, encryptedBytes.length, outputBytes, 0);
-        try {
-            c.doFinal(outputBytes, result);
-        } catch (Exception e) {
-
-        }
+        Packet test = connection.decrypt(encryptedBytes);
+        DnsPacket dns = test.getPayload().getPayload().get(DnsPacket.class);
 
         long duration = (System.currentTimeMillis() - start);
         System.out.println("DURATION: " + duration);
-
-        System.out.println("DECRYPTED PACKET: " + BaseEncoding.base16().encode(outputBytes));
-
-        Packet test = LlcPacket.newPacket(outputBytes, 0, outputBytes.length);
-        DnsPacket dns = test.getPayload().getPayload().get(DnsPacket.class);
         
         for (DnsQuestion q : dns.getHeader().getQuestions()) {
             System.out.println(q.getQName());
         }
+
+
     }
 }
