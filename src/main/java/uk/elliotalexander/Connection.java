@@ -58,14 +58,13 @@ public class Connection {
     /**
      * Generates the Temporal Key for the connection (required to use decrypt)
      */
-    public synchronized void generateTk() {
+    public void generateTk() {
         byte[] ANonce = Arrays.copyOfRange(this.eapolMessages[0], 83, 115);
         byte[] SNonce = Arrays.copyOfRange(this.eapolMessages[1], 83, 115);
 
         try {
             final byte[] ptk = PTK.buildPTK(pmk, this.apAddress, this.stationAddress, ANonce, SNonce);
             this.tk = Arrays.copyOfRange(ptk, 32, 48);
-            notify();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         } catch (InvalidKeyException e) {
@@ -81,9 +80,9 @@ public class Connection {
      * @throws IllegalRawDataException Thrown if the packet is not of the correct form
      * @throws IllegalStateException   Thrown if the TK has not been generated yet
      */
-    public synchronized Packet decrypt(byte[] header, byte[] packet) throws IllegalRawDataException, InterruptedException {
-        while (this.tk == null) {
-            wait();
+    public Packet decrypt(byte[] header, byte[] packet) throws IllegalRawDataException, InterruptedException {
+        if (this.tk == null) {
+            return null;
         }
 
         byte[] pn = new byte[6];
