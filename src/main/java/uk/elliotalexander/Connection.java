@@ -27,7 +27,7 @@ public class Connection {
     private final byte[] pmk;
     private final List<byte[]> eapolMessages = new ArrayList<byte[]>();
     private byte[] tk;
-    private byte[] nonce;
+    private int nonce;
 
     /**
      * Create a new connection
@@ -52,6 +52,10 @@ public class Connection {
         this.eapolMessages.add(number - 1, message);
     }
 
+    public boolean receivedAllEapol() {
+        return this.eapolMessages.size() == 4;
+    }
+
     private byte[] getTk() {
         if (tk == null) {
             throw new IllegalStateException("TK has not been generated");
@@ -62,11 +66,7 @@ public class Connection {
 
     private byte[] getNonce() {
         // Increment after return
-        /*if (nonce == null) {
-            throw new IllegalStateException("Nonce not initialised");
-        }
-
-        return this.nonce;*/
+        //return Ints.toByteArray(++this.nonce);
 
         return BaseEncoding.base16().decode("00448500dc39ee00000000028a".toUpperCase());
     }
@@ -75,12 +75,14 @@ public class Connection {
      * Generates the Temporal Key for the connection (required to use decrypt)
      */
     public void generateTk() {
+        this.nonce = 1;
         byte[] ANonce = Arrays.copyOfRange(this.eapolMessages.get(0), 83, 115);
         byte[] SNonce = Arrays.copyOfRange(this.eapolMessages.get(1), 83, 115);
 
         try {
             final byte[] ptk = PTK.buildPTK(pmk, this.apAddress, this.stationAddress, ANonce, SNonce);
             this.tk = Arrays.copyOfRange(ptk, 32, 48);
+            notify();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         } catch (InvalidKeyException e) {
@@ -96,7 +98,10 @@ public class Connection {
      * @throws IllegalRawDataException Thrown if the packet is not of the correct form
      * @throws IllegalStateException   Thrown if the TK has not been generated yet
      */
-    public Packet decrypt(byte[] packet) throws IllegalRawDataException {
+    public Packet decrypt(byte[] packet) throws IllegalRawDataException, InterruptedException {
+        while (this.tk == null) {
+            wait();
+        }
         AEADParameters params = new AEADParameters(new KeyParameter(this.getTk()), 64, this.getNonce(), new byte[]{});
         CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
         c.init(false, params);
