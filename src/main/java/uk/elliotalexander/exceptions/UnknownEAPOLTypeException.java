@@ -1,4 +1,4 @@
 package uk.elliotalexander.exceptions;
 
-public class UnknownEAPOLTypeException {
+public class UnknownEAPOLTypeException extends Exception {
 }
