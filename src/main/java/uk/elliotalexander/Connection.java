@@ -8,6 +8,7 @@ import org.bouncycastle.crypto.params.KeyParameter;
 import org.pcap4j.packet.IllegalRawDataException;
 import org.pcap4j.packet.LlcPacket;
 import org.pcap4j.packet.Packet;
+import uk.elliotalexander.exceptions.UnknownEAPOLTypeException;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -46,10 +47,23 @@ public class Connection {
      * Adds a new EAPOL message when it is captured
      *
      * @param message The raw EAPOL packet
-     * @param number  The EAPOL number (1-4)
+     * @param packet_id  The bytes representing the type of the eapol packet
      */
-    public void addEapolMessage(byte[] message, int number) {
-        this.eapolMessages.add(number - 1, message);
+    public void addEapolMessage(byte[] message, byte[] packet_id) throws UnknownEAPOLTypeException{
+        int packet_type = -1;
+       if(packet_id[0] == 0x00 && packet_id[1] == 0x8a) {
+            packet_type = 1;
+       } else if (packet_id[0] == 0x01 && packet_id[1] == 0x0a){
+           packet_type = 2;
+       } else if(packet_id[0] == 0x13 && packet_id[1] == 0xca){
+            packet_type = 3;
+       } else if (packet_id[0] == 0x03 && packet_id[1] == 0x0a){
+            packet_type = 4;
+       } else {
+           throw new UnknownEAPOLTypeException();
+       }
+
+        this.eapolMessages.add(packet_type, message);
     }
 
     private byte[] getTk() {
