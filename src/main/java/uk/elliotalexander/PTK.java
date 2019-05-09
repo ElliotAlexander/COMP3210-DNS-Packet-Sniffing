@@ -65,8 +65,8 @@ public class PTK {
         final byte[] PMK = BaseEncoding.base16().decode("8c36c8f2e805fea9e153ff1ed457b3c1cf87f428de5432566b77e7e91a8ab5aa".toUpperCase());
 
 
-        byte[] packet_id_1 = { EAPOL1[23], EAPOL1[24] };
-        byte[] packet_id_2 = { EAPOL2[23], EAPOL2[24] };
+        byte[] packet_id_1 = { EAPOL1[70], EAPOL1[71] };
+        byte[] packet_id_2 = { EAPOL2[70], EAPOL2[71] };
         long start = System.currentTimeMillis();
         Connection connection = new Connection(SPA, AA, PMK);
         connection.addEapolMessage(EAPOL1, packet_id_1);
@@ -76,10 +76,12 @@ public class PTK {
         /*
          * DECRYPTED PACKET 12246 FROM WIRESHARK
          */
+        final String header = "88413000e4956e4400e6448500dc39eee4956e4400e6402800008a02002000000000";
+        final byte[] headerBytes = BaseEncoding.base16().decode(header.toUpperCase());
         final String encrypted = "39f7b6a6ec785448b1d28f563e62b7d53b571038ba9d83d11a2a3aa4ea226094b6b4a41b2bf400b3f0534ebfc76b93f96857e5a3e255f112870986453aca5cba0332a8a21e0317177c3d21117e72a8982409f92853c436e15eb48d";
         byte[] encryptedBytes = BaseEncoding.base16().decode(encrypted.toUpperCase());
 
-        Packet test = connection.decrypt(encryptedBytes);
+        Packet test = connection.decrypt(headerBytes, encryptedBytes);
         DnsPacket dns = test.getPayload().getPayload().get(DnsPacket.class);
 
         long duration = (System.currentTimeMillis() - start);

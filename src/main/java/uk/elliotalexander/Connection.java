@@ -1,10 +1,10 @@
 package uk.elliotalexander;
 
-import com.google.common.io.BaseEncoding;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.modes.CCMBlockCipher;
 import org.bouncycastle.crypto.params.AEADParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
+import org.bouncycastle.util.Arrays;
 import org.pcap4j.packet.IllegalRawDataException;
 import org.pcap4j.packet.LlcPacket;
 import org.pcap4j.packet.Packet;
@@ -12,9 +12,6 @@ import uk.elliotalexander.exceptions.UnknownEAPOLTypeException;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Represents a wireless connection between two devices
@@ -26,9 +23,9 @@ public class Connection {
     private final byte[] stationAddress;
     private final byte[] apAddress;
     private final byte[] pmk;
-    private final List<byte[]> eapolMessages = new ArrayList<byte[]>();
+    private final byte[][] eapolMessages = new byte[4][];
+    private int eapolSize = 0;
     private byte[] tk;
-    private byte[] nonce;
 
     /**
      * Create a new connection
@@ -45,8 +42,7 @@ public class Connection {
 
     /**
      * Adds a new EAPOL message when it is captured
-     *
-     * @param message The raw EAPOL packet
+     * @param message The payload of the eapol packet.
      * @param packet_id  The bytes representing the type of the eapol packet
      */
     public void addEapolMessage(byte[] message, byte[] packet_id) throws UnknownEAPOLTypeException{
@@ -62,35 +58,20 @@ public class Connection {
        } else {
            throw new UnknownEAPOLTypeException();
        }
-
-        this.eapolMessages.add(packet_type, message);
+        this.eapolMessages[packet_type] = message;
+       this.eapolSize++;
     }
 
-    private byte[] getTk() {
-        if (tk == null) {
-            throw new IllegalStateException("TK has not been generated");
-        }
-
-        return this.tk;
-    }
-
-    private byte[] getNonce() {
-        // Increment after return
-        /*if (nonce == null) {
-            throw new IllegalStateException("Nonce not initialised");
-        }
-
-        return this.nonce;*/
-
-        return BaseEncoding.base16().decode("00448500dc39ee00000000028a".toUpperCase());
+    public boolean receivedAllEapol() {
+        return this.eapolSize == 4;
     }
 
     /**
      * Generates the Temporal Key for the connection (required to use decrypt)
      */
     public void generateTk() {
-        byte[] ANonce = Arrays.copyOfRange(this.eapolMessages.get(0), 83, 115);
-        byte[] SNonce = Arrays.copyOfRange(this.eapolMessages.get(1), 83, 115);
+        byte[] ANonce = Arrays.copyOfRange(this.eapolMessages[0], 83, 115);
+        byte[] SNonce = Arrays.copyOfRange(this.eapolMessages[1], 83, 115);
 
         try {
             final byte[] ptk = PTK.buildPTK(pmk, this.apAddress, this.stationAddress, ANonce, SNonce);
@@ -110,8 +91,19 @@ public class Connection {
      * @throws IllegalRawDataException Thrown if the packet is not of the correct form
      * @throws IllegalStateException   Thrown if the TK has not been generated yet
      */
-    public Packet decrypt(byte[] packet) throws IllegalRawDataException {
-        AEADParameters params = new AEADParameters(new KeyParameter(this.getTk()), 64, this.getNonce(), new byte[]{});
+    public Packet decrypt(byte[] header, byte[] packet) throws IllegalRawDataException, InterruptedException {
+        if (this.tk == null) {
+            return null;
+        }
+
+        byte[] pn = new byte[6];
+        for (int i = 0; i < 3; i++) {
+            pn[i] = 0;
+            pn[i + 3] = header[28 - i];
+        }
+        byte[] nonce = Arrays.concatenate(new byte[]{0}, Arrays.copyOfRange(header, 10, 16), pn);
+
+        AEADParameters params = new AEADParameters(new KeyParameter(this.tk), 64, nonce, new byte[]{});
         CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
         c.init(false, params);
 
