@@ -1,11 +1,13 @@
 package uk.elliotalexander;
 
 import com.google.common.io.BaseEncoding;
+import org.bouncycastle.jcajce.provider.digest.SHA3;
 import org.bouncycastle.util.Arrays;
 import org.pcap4j.core.NotOpenException;
 import org.pcap4j.core.PcapDumper;
 import org.pcap4j.core.PcapHandle;
 import org.pcap4j.core.PcapNativeException;
+import org.apache.commons.lang3.ArrayUtils;
 import org.pcap4j.packet.Packet;
 import uk.elliotalexander.exceptions.InterfaceHandleClosedException;
 
@@ -22,15 +24,18 @@ public class PacketListenerThread extends Thread {
     private final PrintWriter program_dump;
     private final Main top_level_listener;
     private final int thread_id;
+    SHA3.DigestSHA3 digestSHA3;
 
     private Map<String, Connection> open_connections = new HashMap<String, Connection>();
 
-    public PacketListenerThread(PcapHandle handle, PrintWriter program_dump, PcapDumper pcap_dumper, Main listener, int thread_id){
+    public PacketListenerThread(PcapHandle handle, PrintWriter program_dump, PcapDumper pcap_dumper, Main listener, int thread_id) {
         this.handle = handle;
         this.program_dump = program_dump;
         this.pcap_dumper = pcap_dumper;
         this.top_level_listener = listener;
         this.thread_id = thread_id;
+
+        this.digestSHA3 = new SHA3.Digest512();
     }
 
 
@@ -39,56 +44,73 @@ public class PacketListenerThread extends Thread {
 
     @Override
     public void run() {
-        int index = 0;
-        while(handle.isOpen()){
+        while (handle.isOpen()) {
             Packet radiotap_top_level_packet = null;
+
             try {
                 radiotap_top_level_packet = handle.getNextPacketEx();
-            } catch (PcapNativeException | TimeoutException | NotOpenException | EOFException e){
+            } catch (PcapNativeException | TimeoutException | NotOpenException | EOFException e) {
                 System.out.println("Error - failed to maintain handle.");
                 handle.close();
-                top_level_listener.throwThreadException((Exception)new InterfaceHandleClosedException(), thread_id);
+                top_level_listener.throwThreadException((Exception) new InterfaceHandleClosedException(), thread_id);
             }
 
             Packet ieee802dot11 = radiotap_top_level_packet.getPayload();
-            Packet ieee802dot11_raw_data = ieee802dot11.getPayload();
 
-            if(ieee802dot11_raw_data != null){
-                byte a = ieee802dot11_raw_data.getRawData()[0];
-                byte b = ieee802dot11_raw_data.getRawData()[1];
-                if( a == 0x88 && (b == 0x02 || b == 0x01)){
-                    System.out.println(index + " -  " + ieee802dot11_raw_data.getRawData()[0] + ieee802dot11_raw_data.getRawData()[1]);
-                    try {
-                        byte[] dest_addr = Arrays.copyOfRange(ieee802dot11.getHeader().getRawData(), 5, 10);
-                        byte[] src_addr = Arrays.copyOfRange(ieee802dot11.getHeader().getRawData(), 15, 20);
-                        byte[] key = Arrays.concatenate(dest_addr, src_addr);
-                        byte[] packet_id = { ieee802dot11.getHeader().getRawData()[23], ieee802dot11.getHeader().getRawData()[24] };
+            byte[] packet_content = ieee802dot11.getPayload().getRawData();
+            byte a = packet_content[0];
+            byte b = packet_content[1];
 
-                        if(open_connections.containsKey(key)){
-                            open_connections.get(key).addEapolMessage(ieee802dot11_raw_data.getPayload().getRawData(), packet_id);
-                        } else {
-                            if(!(packet_id[0] == 0x00 && packet_id[1] == 0x8a)){
-                                Connection c = new Connection(dest_addr, src_addr, pmk);
-                                open_connections.put(packet_id.toString(), c);
-                                new DecoderThread(c).run();
-                            }
-                        }
-                    } catch (Exception e){
-                        e.printStackTrace();
+            try {
+                if (a == (byte) 0x88 && (b == (byte) 0x02 || b == (byte) 0x01)) {
+                    byte[] dest_addr = Arrays.copyOfRange(ieee802dot11.getHeader().getRawData(), 5, 10);
+                    byte[] src_addr = Arrays.copyOfRange(ieee802dot11.getHeader().getRawData(), 15, 20);
+                    byte[] packet_id = {packet_content[39], packet_content[40]};
+                    String key = BaseEncoding.base16().encode(Arrays.concatenate(dest_addr, src_addr));
+                    System.out.println("EAPOL with key: " + key);
+                    if (open_connections.containsKey(key)) {
+                        Connection c = open_connections.get(key);
+                        c.addEapolMessage(packet_content, packet_id);
+                    } else {
+                        System.out.println("Found EAPOL packet. Opening new connection between " + BaseEncoding.base16().encode(src_addr) + " -> " + BaseEncoding.base16().encode(dest_addr));
+                        Connection c = new Connection(dest_addr, src_addr, pmk);
+                        open_connections.put(key, c);
+                        c.addEapolMessage(packet_content, packet_id);
                     }
-                    index++;
+                } else if (a == (byte) 0x88){
+                    System.out.println("Found 802.11 packet.");
+                    byte[] dest_addr = Arrays.copyOfRange(ieee802dot11.getHeader().getRawData(), 5, 10);
+                    byte[] src_addr = Arrays.copyOfRange(ieee802dot11.getHeader().getRawData(), 15, 20);
+                    System.out.println("SRC: " + BaseEncoding.base16().encode(src_addr));
+                    System.out.println("DEST: " + BaseEncoding.base16().encode(dest_addr));
+                    String key = BaseEncoding.base16().encode(Arrays.concatenate(dest_addr, src_addr));
+                    byte[] packet_header = ieee802dot11.getHeader().getRawData();
+                    if(open_connections.containsKey(key)) {
+                        System.out.println("Found open connection for " + key);
+                        Connection c = open_connections.get(key);
+                        new DecryptionThread(c, packet_header, packet_content).start();
+                    } else {
+                        System.out.println("Couldn't find connection for " + key);
+                        System.out.println("Keyset size: " + open_connections.size() );
+                        for(String s : open_connections.keySet()){
+                            System.out.println("Key: " + s);
+                        }
+                    }
                 } else {
-                    index++;
+
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
+
             try {
                 pcap_dumper.dump(radiotap_top_level_packet);
                 program_dump.flush();
-            } catch (NotOpenException e){
+            } catch (NotOpenException e) {
                 System.out.println("Error - failed to maintain output handle");
                 pcap_dumper.close();
                 program_dump.close();
-                top_level_listener.throwThreadException((Exception)new NotOpenException(), thread_id);
+                top_level_listener.throwThreadException((Exception) new NotOpenException(), thread_id);
             }
 
         }
