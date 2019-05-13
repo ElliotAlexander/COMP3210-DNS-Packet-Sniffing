@@ -65,8 +65,9 @@ public class PTK {
         final byte[] PMK = BaseEncoding.base16().decode("8c36c8f2e805fea9e153ff1ed457b3c1cf87f428de5432566b77e7e91a8ab5aa".toUpperCase());
 
 
-        byte[] packet_id_1 = { EAPOL1[70], EAPOL1[71] };
-        byte[] packet_id_2 = { EAPOL2[70], EAPOL2[71] };
+        byte[] packet_id_1 = { EAPOL1[71], EAPOL1[72] };
+        byte[] packet_id_2 = { EAPOL2[71], EAPOL2[72] };
+
         long start = System.currentTimeMillis();
         Connection connection = new Connection(SPA, AA, PMK);
         connection.addEapolMessage(EAPOL1, packet_id_1);
