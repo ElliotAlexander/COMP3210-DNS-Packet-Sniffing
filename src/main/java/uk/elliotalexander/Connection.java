@@ -1,5 +1,6 @@
 package uk.elliotalexander;
 
+import com.google.common.io.BaseEncoding;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.modes.CCMBlockCipher;
 import org.bouncycastle.crypto.params.AEADParameters;
@@ -47,23 +48,34 @@ public class Connection {
      */
     public void addEapolMessage(byte[] message, byte[] packet_id) throws UnknownEAPOLTypeException{
         int packet_type = -1;
-       if(packet_id[0] == 0x00 && packet_id[1] == 0x8a) {
+        if(packet_id[0] == (byte)0x00 && packet_id[1] == (byte)0x8a) {
+            packet_type = 0;
+        } else if (packet_id[0] == (byte)0x01 && packet_id[1] == (byte)0x0a){
             packet_type = 1;
-       } else if (packet_id[0] == 0x01 && packet_id[1] == 0x0a){
-           packet_type = 2;
-       } else if(packet_id[0] == 0x13 && packet_id[1] == 0xca){
+        } else if(packet_id[0] == (byte)0x13 && packet_id[1] == (byte)0xca){
+            packet_type = 2;
+        } else if (packet_id[0] == (byte)0x03 && packet_id[1] == (byte)0x0a){
             packet_type = 3;
-       } else if (packet_id[0] == 0x03 && packet_id[1] == 0x0a){
-            packet_type = 4;
-       } else {
-           throw new UnknownEAPOLTypeException();
-       }
-        this.eapolMessages[packet_type] = message;
+        } else {
+            System.out.println("Failed to find EAPOL message with hex string: " + BaseEncoding.base16().encode(packet_id));
+            throw new UnknownEAPOLTypeException();
+        }
+       this.eapolMessages[packet_type] = message;
        this.eapolSize++;
+       System.out.println("Adding EAPOL Message " + receivedEapolCount() + " / 4.");
+
+       if(receivedAllEapol()){
+           new DecoderThread(this).start();
+       }
     }
 
     public boolean receivedAllEapol() {
         return this.eapolSize == 4;
+    }
+
+
+    public int receivedEapolCount() {
+        return this.eapolSize;
     }
 
     /**
