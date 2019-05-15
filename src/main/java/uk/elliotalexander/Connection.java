@@ -43,30 +43,31 @@ public class Connection {
 
     /**
      * Adds a new EAPOL message when it is captured
-     * @param message The payload of the eapol packet.
-     * @param packet_id  The bytes representing the type of the eapol packet
+     *
+     * @param message   The payload of the eapol packet.
+     * @param packet_id The bytes representing the type of the eapol packet
      */
-    public void addEapolMessage(byte[] message, byte[] packet_id) throws UnknownEAPOLTypeException{
+    public void addEapolMessage(byte[] message, byte[] packet_id) throws UnknownEAPOLTypeException {
         int packet_type = -1;
-        if(packet_id[0] == (byte)0x00 && packet_id[1] == (byte)0x8a) {
+        if (packet_id[0] == (byte) 0x00 && packet_id[1] == (byte) 0x8a) {
             packet_type = 0;
-        } else if (packet_id[0] == (byte)0x01 && packet_id[1] == (byte)0x0a){
+        } else if (packet_id[0] == (byte) 0x01 && packet_id[1] == (byte) 0x0a) {
             packet_type = 1;
-        } else if(packet_id[0] == (byte)0x13 && packet_id[1] == (byte)0xca){
+        } else if (packet_id[0] == (byte) 0x13 && packet_id[1] == (byte) 0xca) {
             packet_type = 2;
-        } else if (packet_id[0] == (byte)0x03 && packet_id[1] == (byte)0x0a){
+        } else if (packet_id[0] == (byte) 0x03 && packet_id[1] == (byte) 0x0a) {
             packet_type = 3;
         } else {
             System.out.println("Failed to find EAPOL message with hex string: " + BaseEncoding.base16().encode(packet_id));
             throw new UnknownEAPOLTypeException();
         }
-       this.eapolMessages[packet_type] = message;
-       this.eapolSize++;
-       System.out.println("Adding EAPOL Message " + receivedEapolCount() + " / 4.");
+        this.eapolMessages[packet_type] = message;
+        this.eapolSize++;
+        System.out.println("Adding EAPOL Message " + receivedEapolCount() + " / 4.");
 
-       if(receivedAllEapol()){
-           new DecoderThread(this).start();
-       }
+        if (receivedAllEapol()) {
+            new DecoderThread(this).start();
+        }
     }
 
     public boolean receivedAllEapol() {
@@ -82,8 +83,8 @@ public class Connection {
      * Generates the Temporal Key for the connection (required to use decrypt)
      */
     public void generateTk() {
-        byte[] ANonce = Arrays.copyOfRange(this.eapolMessages[0], 83, 115);
-        byte[] SNonce = Arrays.copyOfRange(this.eapolMessages[1], 83, 115);
+        byte[] ANonce = Arrays.copyOfRange(this.eapolMessages[0], 51, 83);
+        byte[] SNonce = Arrays.copyOfRange(this.eapolMessages[1], 51, 83);
 
         try {
             final byte[] ptk = PTK.buildPTK(pmk, this.apAddress, this.stationAddress, ANonce, SNonce);
@@ -103,7 +104,7 @@ public class Connection {
      * @throws IllegalRawDataException Thrown if the packet is not of the correct form
      * @throws IllegalStateException   Thrown if the TK has not been generated yet
      */
-    public Packet decrypt(byte[] header, byte[] packet) throws IllegalRawDataException, InterruptedException {
+    public Packet decrypt(byte[] packet) throws IllegalRawDataException, InterruptedException {
         if (this.tk == null) {
             return null;
         }
@@ -111,16 +112,21 @@ public class Connection {
         byte[] pn = new byte[6];
         for (int i = 0; i < 3; i++) {
             pn[i] = 0;
-            pn[i + 3] = header[28 - i];
+            pn[i + 3] = packet[28 - i];
         }
-        byte[] nonce = Arrays.concatenate(new byte[]{0}, Arrays.copyOfRange(header, 10, 16), pn);
+        byte[] nonce = Arrays.concatenate(new byte[]{0}, Arrays.copyOfRange(packet, 10, 16), pn);
+
+        //System.out.println(BaseEncoding.base16().encode(this.tk));
+        //System.out.println(BaseEncoding.base16().encode(packet));
+        //System.out.println(BaseEncoding.base16().encode(nonce));
 
         AEADParameters params = new AEADParameters(new KeyParameter(this.tk), 64, nonce, new byte[]{});
         CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
         c.init(false, params);
 
-        byte[] outputBytes = new byte[c.getOutputSize(packet.length)];
-        int result = c.processBytes(packet, 0, packet.length, outputBytes, 0);
+        byte[] payload = Arrays.copyOfRange(packet, 34, packet.length-4);
+        byte[] outputBytes = new byte[c.getOutputSize(payload.length)];
+        int result = c.processBytes(payload, 0, payload.length, outputBytes, 0);
         try {
             c.doFinal(outputBytes, result);
         } catch (Exception e) {
