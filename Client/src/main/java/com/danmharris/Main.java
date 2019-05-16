@@ -38,7 +38,8 @@ public class Main {
             Runtime.getRuntime().addShutdownHook(new ShutdownThread(client, influxDB));
 
             System.out.println("Connected!");
-            client.subscribe("root/packets/#", new PacketMessageListener(gson, influxDB));
+            client.setCallback(new PacketMessageListener(gson, influxDB));
+            client.subscribe("root/packets/#");
         } catch (MqttException e) {
             System.err.println(e);
             System.err.println("Unable to connect to broker, will now exit!");

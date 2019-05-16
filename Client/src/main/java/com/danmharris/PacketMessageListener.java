@@ -3,14 +3,16 @@ package com.danmharris;
 import com.danmharris.json.DnsPacket;
 import com.danmharris.json.GenericPacket;
 import com.google.gson.Gson;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Point;
 
 import java.util.concurrent.TimeUnit;
 
-public class PacketMessageListener implements IMqttMessageListener {
+public class PacketMessageListener implements MqttCallback {
     private final Gson GSON;
     private final InfluxDB INFLUX;
 
@@ -19,6 +21,11 @@ public class PacketMessageListener implements IMqttMessageListener {
         this.INFLUX = influx;
     }
 
+
+    @Override
+    public void connectionLost(Throwable throwable) {
+
+    }
 
     @Override
     public void messageArrived(String s, MqttMessage mqttMessage) {
@@ -50,6 +57,11 @@ public class PacketMessageListener implements IMqttMessageListener {
                 .addField("packetType", packet.getPacketType())
                 .build()
         );
-        INFLUX.flush();
+        //INFLUX.flush();
+    }
+
+    @Override
+    public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
+
     }
 }
