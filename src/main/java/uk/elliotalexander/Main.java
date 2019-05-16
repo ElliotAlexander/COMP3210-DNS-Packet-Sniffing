@@ -1,5 +1,10 @@
 package uk.elliotalexander;
 
+import com.google.gson.Gson;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.pcap4j.core.*;
 import uk.elliotalexander.exceptions.InterfaceNotFoundException;
 
@@ -38,7 +43,23 @@ public class Main {
             e.printStackTrace();
         }
 
-        PacketListenerThread thread = new PacketListenerThread(handle, writer, dumper, this, thread_id);
+        final String MQTT_BROKER = "tcp://localhost:1883";
+        final String MQTT_CLIENT_ID = "PacketCapture";
+        final MemoryPersistence PERSISTENCE = new MemoryPersistence();
+        MqttClient mqtt = null;
+        try {
+            mqtt = new MqttClient(MQTT_BROKER, MQTT_CLIENT_ID, PERSISTENCE);
+            MqttConnectOptions options = new MqttConnectOptions();
+            options.setCleanSession(true);
+            mqtt.connect(options);
+        } catch (MqttException e) {
+            System.err.println("Unable to connect to MQTT broker, will not be used");
+            mqtt = null;
+        }
+
+        Gson gson = new Gson();
+
+        PacketListenerThread thread = new PacketListenerThread(handle, writer, dumper, mqtt, gson, this, thread_id);
         threads.put(thread_id, thread);
         thread_id++;
         thread.start();

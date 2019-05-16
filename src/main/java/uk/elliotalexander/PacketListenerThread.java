@@ -1,7 +1,9 @@
 package uk.elliotalexander;
 
 import com.google.common.io.BaseEncoding;
+import com.google.gson.Gson;
 import org.bouncycastle.util.Arrays;
+import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.pcap4j.core.NotOpenException;
 import org.pcap4j.core.PcapDumper;
 import org.pcap4j.core.PcapHandle;
@@ -21,15 +23,19 @@ public class PacketListenerThread extends Thread {
     private final PcapHandle handle;
     private final PcapDumper pcap_dumper;
     private final PrintWriter program_dump;
+    private final MqttClient mqttClient;
+    private final Gson gson;
     private final Main top_level_listener;
     private final int thread_id;
     private Map<String, Connection> open_connections = new HashMap<>();
 
 
-    public PacketListenerThread(PcapHandle handle, PrintWriter program_dump, PcapDumper pcap_dumper, Main listener, int thread_id) {
+    public PacketListenerThread(PcapHandle handle, PrintWriter program_dump, PcapDumper pcap_dumper, MqttClient mqttClient, Gson gson, Main listener, int thread_id) {
         this.handle = handle;
         this.program_dump = program_dump;
         this.pcap_dumper = pcap_dumper;
+        this.mqttClient = mqttClient;
+        this.gson = gson;
         this.top_level_listener = listener;
         this.thread_id = thread_id;
     }
@@ -83,7 +89,7 @@ public class PacketListenerThread extends Thread {
                         if (open_connections.containsKey(key)) {
                             System.out.println("Found open connection for " + key);
                             Connection c = open_connections.get(key);
-                            new DecryptionThread(c, packet_content).start();
+                            new DecryptionThread(c, this.mqttClient, this.gson, packet_content).start();
                         } else {
                         }
                     }
