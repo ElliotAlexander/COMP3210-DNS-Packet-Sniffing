@@ -51,6 +51,7 @@ public class Connection {
         int packet_type = -1;
         if (packet_id[0] == (byte) 0x00 && packet_id[1] == (byte) 0x8a) {
             packet_type = 0;
+            this.eapolSize = 0;
         } else if (packet_id[0] == (byte) 0x01 && packet_id[1] == (byte) 0x0a) {
             packet_type = 1;
         } else if (packet_id[0] == (byte) 0x13 && packet_id[1] == (byte) 0xca) {

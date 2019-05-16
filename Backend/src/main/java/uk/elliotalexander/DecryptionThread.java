@@ -36,13 +36,18 @@ public class DecryptionThread extends Thread {
         try {
             Packet p = this.working_connection.decrypt(packet);
 
-            if (this.mqttClient != null && p.contains(IpV4Packet.class)) {
+            if(p != null){
+                decrypt_dump.dump(p);
+                decrypt_dump.flush();
+            }
+
+
+
+            if (this.mqttClient != null && p != null && p.contains(IpV4Packet.class)) {
                 String jsonString = null;
                 String topic = "root/packets/generic";
 
                 IpV4Packet ipv4 = p.get(IpV4Packet.class);
-                decrypt_dump.dump(ipv4);
-                decrypt_dump.flush();
 
                 IpV4Packet.IpV4Header v4PacketHeader = p.get(IpV4Packet.class).getHeader();
                 final String srcAddr = v4PacketHeader.getSrcAddr().getHostAddress();

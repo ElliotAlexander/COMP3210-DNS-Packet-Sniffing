@@ -115,6 +115,9 @@ public class PacketListenerThread extends Thread {
                         if (open_connections.containsKey(key)) {
                             Connection c = open_connections.get(key);
                             c.addEapolMessage(packet_content, packet_id);
+                            if(c.receivedAllEapol()){
+                                open_connections_timestamped.remove(key);
+                            }
                         } else {
                             // Else we need a new connection object.
                             System.out.println("Found EAPOL packet. Opening new connection between " + srcString + " -> " + destString);
@@ -129,6 +132,7 @@ public class PacketListenerThread extends Thread {
                             new DecryptionThread(c, this.mqttClient, this.gson, packet_content, decrypt_dump).start();
                         }
                     }
+
                 }
             } catch (Exception e) {
                 e.printStackTrace();

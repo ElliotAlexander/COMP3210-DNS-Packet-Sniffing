@@ -103,6 +103,7 @@ public class Main {
             Long current_sys_time = System.currentTimeMillis();
             for(String c : thread.getOpenConnectionIDs()){
                 if(current_sys_time - thread.getConnectionTimestamp(c) > 20000){
+                    System.out.println("Kicking connection!");
                     thread.pruneConnection(c);
                 }
             }
