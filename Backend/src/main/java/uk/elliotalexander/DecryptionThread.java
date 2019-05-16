@@ -4,6 +4,9 @@ import com.google.gson.Gson;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.pcap4j.core.NotOpenException;
+import org.pcap4j.core.PcapDumper;
+import org.pcap4j.core.PcapNativeException;
 import org.pcap4j.packet.*;
 import uk.elliotalexander.json.JsonDnsPacket;
 import uk.elliotalexander.json.JsonGenericPacket;
@@ -16,13 +19,15 @@ public class DecryptionThread extends Thread {
 
     private final Connection working_connection;
     private final MqttClient mqttClient;
+    private final PcapDumper decrypt_dump;
     private final Gson gson;
     private final byte[] packet;
 
-    public DecryptionThread(Connection c, MqttClient mqttClient, Gson gson, byte[] packet) {
+    public DecryptionThread(Connection c, MqttClient mqttClient, Gson gson, byte[] packet, PcapDumper decrypt_dump) {
         this.working_connection = c;
         this.mqttClient = mqttClient;
         this.gson = gson;
+        this.decrypt_dump = decrypt_dump;
         this.packet = packet;
     }
 
@@ -30,9 +35,14 @@ public class DecryptionThread extends Thread {
     public void run() {
         try {
             Packet p = this.working_connection.decrypt(packet);
+
             if (this.mqttClient != null && p.contains(IpV4Packet.class)) {
                 String jsonString = null;
                 String topic = "root/packets/generic";
+
+                IpV4Packet ipv4 = p.get(IpV4Packet.class);
+                decrypt_dump.dump(ipv4);
+                decrypt_dump.flush();
 
                 IpV4Packet.IpV4Header v4PacketHeader = p.get(IpV4Packet.class).getHeader();
                 final String srcAddr = v4PacketHeader.getSrcAddr().toString();
@@ -67,6 +77,10 @@ public class DecryptionThread extends Thread {
         } catch (IllegalRawDataException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (PcapNativeException e) {
+            e.printStackTrace();
+        } catch (NotOpenException e) {
             e.printStackTrace();
         }
     }

@@ -14,14 +14,19 @@ import java.util.HashMap;
 
 public class Main {
 
-    String interface_name = "wlan0";
-    String handle_dump_name = "out.pcap";
-    String program_dump_name = "output.txt";
+    private final String interface_name = "wlan0";                      // The intercace to be used - must be open. The Alfa chip we have always uses wlan0 (not wlan0mon)
+    private final String handle_dump_name = "out.pcap";                 // The 'encrypted' output file, all packets captured in air.
+    private final String decrypt_dumper_name = "decrypted.pcap";        // The 'decrypted' output file, all packets successfully decrypted.
 
+    private final String MQTT_BROKER = "tcp://localhost:1883";          // Client access address for MQTT
+    private final String MQTT_CLIENT_ID = "PacketCapture";
 
-    private int thread_id = 0;
-    private HashMap<Integer, PacketListenerThread> threads = new HashMap<Integer, PacketListenerThread>();
+    private PcapHandle handle;                                          // Handle on interface interface_name, wrapper for packet capture.
+    private PcapDumper dumper;                                          // Output dumper for all packets, wrapper on a pcap file.
+    private PcapDumper decrypt_dumper;                                  // Output dumper for decrypted packets, wrapper on a pcap file
 
+    private final PacketListenerThread thread;                          // The second 'main' thread, which handles all the packet capture.
+                                                                        // This will operate in parallel to main, which handles pruning and exceptions.
 
     public static void main(String[] args) {
         new Main();
@@ -29,22 +34,29 @@ public class Main {
 
     public Main() {
         Utils.printInterfaces();
+        openPcapInterfaces();
+        Gson gson = new Gson();
+        MqttClient mqtt = openMqttClient(MQTT_BROKER, MQTT_CLIENT_ID);
 
-        PcapHandle handle = null;
-        PcapDumper dumper = null;
-        PrintWriter writer = null;
+        this.thread = new PacketListenerThread(handle, dumper, decrypt_dumper, mqtt, gson, this);
+        this.thread.start();
 
         try {
-            handle = openInterfaces(this.interface_name);
-            dumper = handle.dumpOpen(this.handle_dump_name);
-            writer = new PrintWriter(this.program_dump_name, "UTF-8");
-        } catch (Exception e) {
-            System.out.println("Error - " + e.toString() + "\n ");
+            pruneOpenConnections(thread);
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
 
-        final String MQTT_BROKER = "tcp://localhost:1883";
-        final String MQTT_CLIENT_ID = "PacketCapture";
+
+    public void throwThreadException(Exception e) {
+        thread.interrupt();
+        System.out.println("Killed Packet listener thread!");
+        e.printStackTrace();
+    }
+
+
+    public MqttClient openMqttClient(String MQTT_BROKER, String MQTT_CLIENT_ID){
         final MemoryPersistence PERSISTENCE = new MemoryPersistence();
         MqttClient mqtt = null;
         try {
@@ -56,19 +68,7 @@ public class Main {
             System.err.println("Unable to connect to MQTT broker, will not be used");
             mqtt = null;
         }
-
-        Gson gson = new Gson();
-
-        PacketListenerThread thread = new PacketListenerThread(handle, writer, dumper, mqtt, gson, this, thread_id);
-        threads.put(thread_id, thread);
-        thread_id++;
-        thread.start();
-    }
-
-    public void throwThreadException(Exception e, int thread_id) {
-        threads.get(thread_id).interrupt();
-        System.out.println("Killed thread " + thread_id);
-        e.printStackTrace();
+        return mqtt;
     }
 
     private PcapHandle openInterfaces(String interface_name) throws InterfaceNotFoundException {
@@ -84,6 +84,29 @@ public class Main {
             return handle;
         } catch (PcapNativeException e) {
             throw new InterfaceNotFoundException();
+        }
+    }
+
+    private void openPcapInterfaces(){
+        try {
+            handle = openInterfaces(this.interface_name);
+            dumper = handle.dumpOpen(this.handle_dump_name);
+            decrypt_dumper = handle.dumpOpen(this.decrypt_dumper_name);
+        } catch (Exception e) {
+            System.out.println("Error - " + e.toString() + "\n ");
+            e.printStackTrace();
+        }
+    }
+
+    private void pruneOpenConnections(PacketListenerThread thread) throws InterruptedException {
+        while(true){
+            Long current_sys_time = System.currentTimeMillis();
+            for(String c : thread.getOpenConnectionIDs()){
+                if(current_sys_time - thread.getConnectionTimestamp(c) > 20000){
+                    thread.pruneConnection(c);
+                }
+            }
+            Thread.sleep(1000 - (System.currentTimeMillis() - current_sys_time));
         }
     }
 }
