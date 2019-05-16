@@ -4,7 +4,7 @@ public class DecoderThread extends Thread {
 
     private final Connection working_connection;
 
-    public DecoderThread(Connection c){
+    public DecoderThread(Connection c) {
         this.working_connection = c;
     }
 

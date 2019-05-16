@@ -8,13 +8,12 @@ import java.util.Enumeration;
 
 public class Utils {
 
-    public static void printInterfaces()
-    {
+    public static void printInterfaces() {
         try {
             Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
             for (NetworkInterface netint : Collections.list(nets))
                 displayInterfaceInformation(netint);
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

@@ -27,7 +27,7 @@ public class PTK {
 
     private static byte[] PRF(byte[] key, byte[] purpose, byte[] data, int length) throws InvalidKeyException, NoSuchAlgorithmException {
         byte[] result = new byte[]{};
-        for (int i = 0; i <= (length+159)/160; i++) {
+        for (int i = 0; i <= (length + 159) / 160; i++) {
             result = Arrays.concatenate(result, HSHA1(key, purpose, data, (byte) i));
         }
 
@@ -65,8 +65,8 @@ public class PTK {
         final byte[] PMK = BaseEncoding.base16().decode("8c36c8f2e805fea9e153ff1ed457b3c1cf87f428de5432566b77e7e91a8ab5aa".toUpperCase());
 
 
-        byte[] packet_id_1 = { EAPOL1[71], EAPOL1[72] };
-        byte[] packet_id_2 = { EAPOL2[71], EAPOL2[72] };
+        byte[] packet_id_1 = {EAPOL1[71], EAPOL1[72]};
+        byte[] packet_id_2 = {EAPOL2[71], EAPOL2[72]};
 
         long start = System.currentTimeMillis();
         Connection connection = new Connection(SPA, AA, PMK);
@@ -85,7 +85,7 @@ public class PTK {
 
         long duration = (System.currentTimeMillis() - start);
         System.out.println("DURATION: " + duration);
-        
+
         for (DnsQuestion q : dns.getHeader().getQuestions()) {
             System.out.println(q.getQName());
         }

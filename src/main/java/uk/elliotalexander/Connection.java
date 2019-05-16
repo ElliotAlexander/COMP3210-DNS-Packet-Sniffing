@@ -120,7 +120,7 @@ public class Connection {
         CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
         c.init(false, params);
 
-        byte[] payload = Arrays.copyOfRange(packet, 34, packet.length-4);
+        byte[] payload = Arrays.copyOfRange(packet, 34, packet.length - 4);
         byte[] outputBytes = new byte[c.getOutputSize(payload.length)];
         int result = c.processBytes(payload, 0, payload.length, outputBytes, 0);
         try {
