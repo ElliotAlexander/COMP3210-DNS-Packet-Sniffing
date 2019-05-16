@@ -3,11 +3,11 @@ package uk.elliotalexander.json;
 public class JsonGenericPacket {
     private final String srcAddress;
     private final String destAddress;
-    private final String srcPort;
-    private final String destPort;
+    private final int srcPort;
+    private final int destPort;
     private final String packetType;
 
-    public JsonGenericPacket(String srcAddress, String destAddress, String srcPort, String destPort, String packetType) {
+    public JsonGenericPacket(String srcAddress, String destAddress, int srcPort, int destPort, String packetType) {
         this.srcAddress = srcAddress;
         this.destAddress = destAddress;
         this.srcPort = srcPort;
@@ -23,11 +23,11 @@ public class JsonGenericPacket {
         return destAddress;
     }
 
-    public String getSrcPort() {
+    public int getSrcPort() {
         return srcPort;
     }
 
-    public String getDestPort() {
+    public int getDestPort() {
         return destPort;
     }
 

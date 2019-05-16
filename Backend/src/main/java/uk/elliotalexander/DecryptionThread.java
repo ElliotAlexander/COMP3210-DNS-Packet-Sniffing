@@ -35,12 +35,12 @@ public class DecryptionThread extends Thread {
                 String topic = "root/packets/generic";
 
                 IpV4Packet.IpV4Header v4PacketHeader = p.get(IpV4Packet.class).getHeader();
-                final String srcAddr = v4PacketHeader.getSrcAddr().toString();
-                final String destAddr = v4PacketHeader.getDstAddr().toString();
+                final String srcAddr = v4PacketHeader.getSrcAddr().getHostAddress();
+                final String destAddr = v4PacketHeader.getDstAddr().getHostAddress();
 
                 TransportPacket.TransportHeader transportPacket = p.get(TransportPacket.class).getHeader();
-                final String srcPort = transportPacket.getSrcPort().toString();
-                final String destPort = transportPacket.getDstPort().toString();
+                final int srcPort = transportPacket.getSrcPort().valueAsInt();
+                final int destPort = transportPacket.getDstPort().valueAsInt();
 
                 if (p.contains(DnsPacket.class)) {
                     DnsPacket.DnsHeader dnsPacketHeader = p.get(DnsPacket.class).getHeader();
