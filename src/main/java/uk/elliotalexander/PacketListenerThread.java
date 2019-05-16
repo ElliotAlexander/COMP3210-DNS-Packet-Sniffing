@@ -1,7 +1,6 @@
 package uk.elliotalexander;
 
 import com.google.common.io.BaseEncoding;
-import org.bouncycastle.jcajce.provider.digest.SHA3;
 import org.bouncycastle.util.Arrays;
 import org.pcap4j.core.NotOpenException;
 import org.pcap4j.core.PcapDumper;
@@ -24,8 +23,7 @@ public class PacketListenerThread extends Thread {
     private final PrintWriter program_dump;
     private final Main top_level_listener;
     private final int thread_id;
-    SHA3.DigestSHA3 digestSHA3;
-    private Map<String, Connection> open_connections = new HashMap<String, Connection>();
+    private Map<String, Connection> open_connections = new HashMap<>();
 
 
     public PacketListenerThread(PcapHandle handle, PrintWriter program_dump, PcapDumper pcap_dumper, Main listener, int thread_id) {
@@ -34,8 +32,6 @@ public class PacketListenerThread extends Thread {
         this.pcap_dumper = pcap_dumper;
         this.top_level_listener = listener;
         this.thread_id = thread_id;
-
-        this.digestSHA3 = new SHA3.Digest512();
     }
 
     @Override
@@ -50,6 +46,7 @@ public class PacketListenerThread extends Thread {
                 handle.close();
                 top_level_listener.throwThreadException((Exception) new InterfaceHandleClosedException(), thread_id);
             }
+
             Packet ieee802dot11 = radiotap_top_level_packet.getPayload().getPayload();
             byte[] packet_content = ieee802dot11.getRawData();
             byte a = packet_content[0];
@@ -65,8 +62,6 @@ public class PacketListenerThread extends Thread {
                     byte[] src_addr = Arrays.copyOfRange(ieee802dot11.getRawData(), 10, 16);
                     String srcString = BaseEncoding.base16().encode(src_addr);
                     String destString = BaseEncoding.base16().encode(dest_addr);
-                    System.out.println("SRC:" + srcString);
-                    System.out.println("DEST:" + destString);
                     String key = srcString.compareTo(destString) < 0 ? srcString + destString : destString + srcString;
 
                     if (b == (byte) 0x02 || b == (byte) 0x01) {
@@ -88,7 +83,6 @@ public class PacketListenerThread extends Thread {
                         if (open_connections.containsKey(key)) {
                             System.out.println("Found open connection for " + key);
                             Connection c = open_connections.get(key);
-                            System.out.println("PACKETCONTENT " + packet_content.length);
                             new DecryptionThread(c, packet_content).start();
                         } else {
                         }
@@ -100,6 +94,7 @@ public class PacketListenerThread extends Thread {
                 e.printStackTrace();
             }
 
+            // Write to PCAP file
             try {
                 pcap_dumper.dump(radiotap_top_level_packet);
                 program_dump.flush();

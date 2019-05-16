@@ -116,10 +116,6 @@ public class Connection {
         }
         byte[] nonce = Arrays.concatenate(new byte[]{0}, Arrays.copyOfRange(packet, 10, 16), pn);
 
-        //System.out.println(BaseEncoding.base16().encode(this.tk));
-        //System.out.println(BaseEncoding.base16().encode(packet));
-        //System.out.println(BaseEncoding.base16().encode(nonce));
-
         AEADParameters params = new AEADParameters(new KeyParameter(this.tk), 64, nonce, new byte[]{});
         CCMBlockCipher c = new CCMBlockCipher(new AESEngine());
         c.init(false, params);
