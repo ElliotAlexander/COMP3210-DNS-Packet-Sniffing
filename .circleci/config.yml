@@ -22,10 +22,11 @@ jobs:
           path: target/ComputerNetworksCoursework-1.0-SNAPSHOT-jar-with-dependencies.jar
 
   build-frontend:
-    working_directory: ~/comp3210
+    working_directory: ~/comp3210/Client
     machine: true 
     steps:
-      - checkout
+      - checkout:
+        path: ~/comp3210
       - run: cd Client/
       - run: docker-compose up -d
 
