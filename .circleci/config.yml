@@ -1,0 +1,36 @@
+version: 2 
+jobs:
+  build-backend:
+    working_directory: ~/comp3210
+    docker: 
+      - image: circleci/openjdk:8-jdk-browsers
+    steps: 
+      - checkout 
+      - run: cd Backend/
+      - restore_cache: 
+          key: comp3210-mvn-cache{{ checksum "pom.xml" }}
+      - run: mvn dependency:go-offline
+      - save_cache: 
+          paths:
+            - ~/.m2
+          key: comp3210-mvn-cache{{ checksum "pom.xml" }}
+      - run: mvn clean test
+      - run: mvn package 
+      - store_test_results:
+          path: target/surefire-reports
+      - store_artifacts: 
+          path: target/ComputerNetworksCoursework-1.0-SNAPSHOT-jar-with-dependencies.jar
+
+  build-frontend:
+    working_directory: ~/comp3210
+    machine: true 
+    steps:
+      - checkout
+      - run: cd Client/
+      - run: docker-compose up -d
+
+workflows:
+  build_and_test:
+    jobs:
+      - build-backend
+      - build-frontend
