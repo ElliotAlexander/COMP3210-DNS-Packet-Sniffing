@@ -26,7 +26,7 @@ jobs:
     machine: true 
     steps:
       - checkout:
-        path: ~/comp3210
+          path: ~/comp3210
       - run: cd Client/
       - run: docker-compose up -d
 
