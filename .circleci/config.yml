@@ -1,11 +1,12 @@
 version: 2 
 jobs:
   build-backend:
-    working_directory: ~/comp3210
+    working_directory: ~/comp3210/Backend
     docker: 
       - image: circleci/openjdk:8-jdk-browsers
     steps: 
-      - checkout 
+      - checkout:
+          path: ~/comp3210
       - run: cd Backend/
       - restore_cache: 
           key: comp3210-mvn-cache{{ checksum "pom.xml" }}
