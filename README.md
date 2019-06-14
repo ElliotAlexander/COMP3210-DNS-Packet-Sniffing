@@ -1,6 +1,6 @@
 # Advanced Computer Networks - Packet Sniffing
 
-**Running this code on Networks which you don't control is illegal. Capturing packets between devices you don't control.**
+**Warning - running this code on Networks which you don't control is illegal. Capturing packets between devices you don't control is also illegal. This code is for academic purposes only.**
 
 [![CircleCI](https://circleci.com/gh/ElliotAlexander/COMP3210-DNS-Packet-Sniffing.svg?style=svg&circle-token=64d9f47a327a6d78791c278e9c23a137ab84af39)](https://circleci.com/gh/ElliotAlexander/COMP3210-DNS-Packet-Sniffing)
 
