@@ -30,6 +30,8 @@
                         </goals>
                         <configuration>
                             <archive>
+                            <source>1.8</source>
+                            <target>1.8</target>
                             <manifest>
                                 <mainClass>
                                     org.baeldung.executable.ExecutableMavenJar
