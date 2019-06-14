@@ -7,7 +7,6 @@ jobs:
     steps: 
       - checkout:
           path: ~/comp3210
-      - run: cd Backend/
       - restore_cache: 
           key: comp3210-mvn-cache{{ checksum "pom.xml" }}
       - run: mvn dependency:go-offline
